@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.db
+.idea/
+Backups/
+Reports/
+Bills/
