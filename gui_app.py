@@ -9,21 +9,26 @@ import csv
 # --- CẤU HÌNH HỆ THỐNG ---
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
-DB_NAME = 'quanly_ve_v8.db'
+# Đổi tên file DB để khởi tạo cấu trúc mới có tính năng chọn ghế
+DB_NAME = 'quanly_ve_v11_full_options.db'
 
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+    # CẬP NHẬT: Thêm cột booked_seats để lưu danh sách ghế đã chọn
     cursor.execute('''CREATE TABLE IF NOT EXISTS flights (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         code TEXT UNIQUE, destination TEXT, 
                         price REAL, seats INTEGER,
+                        total_seats INTEGER,
+                        booked_seats TEXT DEFAULT '',
                         departure_time TEXT)''')
+    # CẬP NHẬT: Thêm cột seat_number vào bảng bookings
     cursor.execute('''CREATE TABLE IF NOT EXISTS bookings (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         customer_name TEXT, customer_phone TEXT,
-                        flight_code TEXT, price_at_booking REAL,
+                        flight_code TEXT, seat_number TEXT, price_at_booking REAL,
                         booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS users (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,16 +45,16 @@ def init_db():
     if cursor.fetchone()[0] == 0:
         now = datetime.datetime.now()
         sample_flights = [
-            ('VN121', 'TP. Hồ Chí Minh (SGN)', 1250000, 50, (now + datetime.timedelta(days=1)).strftime("%d/%m %H:%M")),
-            ('VN234', 'Hà Nội (HAN)', 1500000, 3, (now + datetime.timedelta(days=2)).strftime("%d/%m %H:%M")),
-            # Ghế < 5 để test
-            ('VJ456', 'Đà Nẵng (DAD)', 850000, 60, (now + datetime.timedelta(hours=5)).strftime("%d/%m %H:%M")),
-            ('QH789', 'Phú Quốc (PQC)', 2100000, 4, (now + datetime.timedelta(days=3)).strftime("%d/%m %H:%M")),
-            # Ghế < 5 để test
-            ('VN999', 'Đà Lạt (DLI)', 950000, 0, (now + datetime.timedelta(days=1)).strftime("%d/%m %H:%M"))
+            ('VN121', 'TP. Hồ Chí Minh (SGN)', 1250000, 50, 50,
+             (now + datetime.timedelta(days=1)).strftime("%d/%m %H:%M")),
+            ('VN234', 'Hà Nội (HAN)', 1500000, 3, 50, (now + datetime.timedelta(days=2)).strftime("%d/%m %H:%M")),
+            ('VJ456', 'Đà Nẵng (DAD)', 850000, 60, 60, (now + datetime.timedelta(hours=5)).strftime("%d/%m %H:%M")),
+            ('QH789', 'Phú Quốc (PQC)', 2100000, 4, 40, (now + datetime.timedelta(days=3)).strftime("%d/%m %H:%M")),
+            ('VN999', 'Đà Lạt (DLI)', 950000, 0, 30, (now + datetime.timedelta(days=1)).strftime("%d/%m %H:%M"))
         ]
+        # Thêm giá trị trống cho booked_seats ở vị trí thứ 6
         cursor.executemany(
-            "INSERT INTO flights (code, destination, price, seats, departure_time) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO flights (code, destination, price, seats, total_seats, departure_time, booked_seats) VALUES (?, ?, ?, ?, ?, ?, '')",
             sample_flights)
     conn.commit()
     conn.close()
@@ -69,7 +74,7 @@ class LoginFrame(ctk.CTkFrame):
                       command=self.check_login).pack(pady=20)
 
     def check_login(self):
-        conn = sqlite3.connect(DB_NAME);
+        conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         cursor.execute("SELECT username, role FROM users WHERE username=? AND password=?",
                        (self.ent_user.get(), self.ent_pass.get()))
@@ -84,7 +89,7 @@ class LoginFrame(ctk.CTkFrame):
 class FlightApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("QUẢN LÝ VÉ MÁY BAY v9.0 PRO - SMART ALERT")
+        self.title("QUẢN LÝ VÉ MÁY BAY v11.0 - FULL & CHỌN GHẾ")
         self.geometry("1250x850")
         self.current_user = None
         self.current_role = None
@@ -102,7 +107,7 @@ class FlightApp(ctk.CTk):
 
     def show_main_ui(self):
         for w in self.container.winfo_children(): w.destroy()
-        self.container.grid_columnconfigure(1, weight=1);
+        self.container.grid_columnconfigure(1, weight=1)
         self.container.grid_rowconfigure(0, weight=1)
 
         # Sidebar
@@ -131,8 +136,11 @@ class FlightApp(ctk.CTk):
             self.ent_time.pack(pady=5, padx=20, fill="x")
             self.ent_price = ctk.CTkEntry(self.admin_input_frame, placeholder_text="Giá vé");
             self.ent_price.pack(pady=5, padx=20, fill="x")
-            self.ent_seats = ctk.CTkEntry(self.admin_input_frame, placeholder_text="Số ghế");
+            self.ent_seats = ctk.CTkEntry(self.admin_input_frame, placeholder_text="Số ghế còn");
             self.ent_seats.pack(pady=5, padx=20, fill="x")
+            self.ent_total = ctk.CTkEntry(self.admin_input_frame, placeholder_text="Tổng số ghế");
+            self.ent_total.pack(pady=5, padx=20, fill="x")
+
             ctk.CTkButton(self.sidebar, text="THÊM CHUYẾN", fg_color="#27AE60", command=self.add_flight).pack(pady=10,
                                                                                                               padx=20,
                                                                                                               fill="x")
@@ -160,14 +168,16 @@ class FlightApp(ctk.CTk):
     def show_frame(self, page):
         for f in [self.frame_flights, self.frame_customers, self.frame_stats]: f.pack_forget()
         if page == "flights":
-            self.frame_flights.pack(fill="both", expand=True); self.load_data()
+            self.frame_flights.pack(fill="both", expand=True);
+            self.load_data()
         elif page == "customers":
-            self.frame_customers.pack(fill="both", expand=True); self.load_customers()
+            self.frame_customers.pack(fill="both", expand=True);
+            self.load_customers()
         elif page == "stats":
-            self.frame_stats.pack(fill="both", expand=True); self.update_stats()
+            self.frame_stats.pack(fill="both", expand=True);
+            self.update_stats()
 
     def setup_flight_view(self):
-        # --- THANH LỌC NÂNG CAO ---
         filter_bar = ctk.CTkFrame(self.frame_flights, fg_color="#2C3E50", corner_radius=10)
         filter_bar.pack(fill="x", pady=(0, 15), ipady=5)
 
@@ -181,7 +191,6 @@ class FlightApp(ctk.CTk):
         self.opt_price.grid(row=0, column=2, padx=10)
 
         ctk.CTkLabel(filter_bar, text="Ghế:").grid(row=0, column=3, padx=2)
-        # THÊM LỰA CHỌN LỌC SẮP HẾT VÉ
         self.opt_seats = ctk.CTkOptionMenu(filter_bar, values=["Tất cả", "Còn chỗ", "Sắp hết vé (<5)", "Hết chỗ"],
                                            width=130)
         self.opt_seats.grid(row=0, column=4, padx=10)
@@ -189,15 +198,14 @@ class FlightApp(ctk.CTk):
         ctk.CTkButton(filter_bar, text="LỌC DỮ LIỆU", width=100, fg_color="#3498DB", command=self.search_data).grid(
             row=0, column=5, padx=15)
 
-        # --- TABLE VỚI TAG MÀU SẮC ---
-        self.tree = ttk.Treeview(self.frame_flights, columns=("ID", "Code", "Dest", "Time", "Price", "Seats"),
+        # CẬP NHẬT: Thêm cột "Total" vào Treeview
+        self.tree = ttk.Treeview(self.frame_flights, columns=("ID", "Code", "Dest", "Time", "Price", "Seats", "Total"),
                                  show='headings')
-        cols = {"ID": 50, "Code": 100, "Dest": 200, "Time": 150, "Price": 120, "Seats": 80}
+        cols = {"ID": 50, "Code": 100, "Dest": 200, "Time": 150, "Price": 120, "Seats": 80, "Total": 80}
         for c, w in cols.items():
             self.tree.heading(c, text=c);
             self.tree.column(c, width=w, anchor="center")
 
-        # CẤU HÌNH TAG MÀU ĐỎ CHO CHUYẾN SẮP HẾT VÉ
         self.tree.tag_configure('warning', foreground='#FF4444', font=('Arial', 10, 'bold'))
         self.tree.pack(fill="both", expand=True)
 
@@ -210,7 +218,6 @@ class FlightApp(ctk.CTk):
                           command=self.delete_flight).pack(side="left", expand=True, padx=10)
 
     def search_data(self):
-        # Hàm này bây giờ sẽ gọi chung load_data để xử lý cả tìm kiếm lẫn màu sắc
         self.load_data()
 
     def load_data(self):
@@ -220,10 +227,10 @@ class FlightApp(ctk.CTk):
         p_filter = self.opt_price.get()
         s_filter = self.opt_seats.get()
 
-        query = "SELECT id, code, destination, departure_time, price, seats FROM flights WHERE (code LIKE ? OR destination LIKE ?)"
+        # CẬP NHẬT: Select thêm total_seats
+        query = "SELECT id, code, destination, departure_time, price, seats, total_seats FROM flights WHERE (code LIKE ? OR destination LIKE ?)"
         params = ['%' + q + '%', '%' + q + '%']
 
-        # Xử lý lọc
         if p_filter == "Dưới 1 triệu":
             query += " AND price < 1000000"
         elif p_filter == "1 - 2 triệu":
@@ -243,27 +250,30 @@ class FlightApp(ctk.CTk):
         c.execute(query, params)
 
         for r in c.fetchall():
-            # LOGIC CẢNH BÁO MÀU SẮC
             seats_count = r[5]
             tag = ''
             if 0 < seats_count < 5:
-                tag = 'warning'  # Gắn tag warning để hiện màu đỏ
+                tag = 'warning'
 
-            self.tree.insert("", "end", values=(r[0], r[1], r[2], r[3], f"{r[4]:,.0f}", seats_count), tags=(tag,))
+            # Hiển thị dữ liệu bao gồm cả r[6] là total_seats
+            self.tree.insert("", "end", values=(r[0], r[1], r[2], r[3], f"{r[4]:,.0f}", seats_count, r[6]), tags=(tag,))
         conn.close()
 
     def add_flight(self):
         try:
             conn = sqlite3.connect(DB_NAME);
             c = conn.cursor()
-            c.execute("INSERT INTO flights (code, destination, price, seats, departure_time) VALUES (?,?,?,?,?)",
-                      (self.ent_code.get().upper(), self.ent_dest.get(), float(self.ent_price.get()),
-                       int(self.ent_seats.get()), self.ent_time.get()))
+            # CẬP NHẬT: Insert thêm ent_total
+            c.execute(
+                "INSERT INTO flights (code, destination, price, seats, total_seats, departure_time) VALUES (?,?,?,?,?,?)",
+                (self.ent_code.get().upper(), self.ent_dest.get(), float(self.ent_price.get()),
+                 int(self.ent_seats.get()), int(self.ent_total.get()), self.ent_time.get()))
             conn.commit();
             conn.close();
             self.load_data()
             messagebox.showinfo("Thành công", "Đã thêm chuyến bay!");
-            [e.delete(0, 'end') for e in [self.ent_code, self.ent_dest, self.ent_time, self.ent_price, self.ent_seats]]
+            [e.delete(0, 'end') for e in
+             [self.ent_code, self.ent_dest, self.ent_time, self.ent_price, self.ent_seats, self.ent_total]]
         except Exception as e:
             messagebox.showerror("Lỗi", f"Dữ liệu không hợp lệ: {e}")
 
@@ -273,47 +283,73 @@ class FlightApp(ctk.CTk):
             messagebox.showwarning("Chú ý", "Hãy chọn một chuyến bay!")
             return
         f_data = self.tree.item(sel)['values']
+
+        # LẤY DANH SÁCH GHẾ CÒN TRỐNG
+        conn = sqlite3.connect(DB_NAME);
+        c = conn.cursor()
+        c.execute("SELECT seats, total_seats, booked_seats, price FROM flights WHERE id=?", (f_data[0],))
+        res = c.fetchone();
+        conn.close()
+
+        if res[0] <= 0:
+            messagebox.showerror("Lỗi", "Chuyến bay đã hết chỗ!")
+            return
+
+        booked_list = res[2].split(',') if res[2] else []
+        # Tạo danh sách ghế G1, G2... loại trừ những ghế đã có trong booked_list
+        available_seats = [f"G{i}" for i in range(1, res[1] + 1) if f"G{i}" not in booked_list]
+
         pop = ctk.CTkToplevel(self);
-        pop.title("Đặt vé");
-        pop.geometry("400x300");
+        pop.title("Đặt vé & Chọn ghế");
+        pop.geometry("400x450");
         pop.attributes("-topmost", True)
+
         ctk.CTkLabel(pop, text=f"ĐẶT VÉ CHUYẾN: {f_data[1]}", font=("Arial", 16, "bold")).pack(pady=10)
         en = ctk.CTkEntry(pop, placeholder_text="Tên khách hàng", width=300);
         en.pack(pady=10)
         ep = ctk.CTkEntry(pop, placeholder_text="Số điện thoại", width=300);
         ep.pack(pady=10)
 
+        ctk.CTkLabel(pop, text="Chọn ghế muốn ngồi:").pack(pady=(10, 0))
+        seat_var = ctk.StringVar(value=available_seats[0])
+        seat_menu = ctk.CTkOptionMenu(pop, values=available_seats, variable=seat_var, width=300)
+        seat_menu.pack(pady=10)
+
         def confirm():
             if not en.get() or not ep.get():
                 messagebox.showwarning("Lỗi", "Vui lòng nhập đủ thông tin!")
                 return
+
+            selected_seat = seat_var.get()
             conn = sqlite3.connect(DB_NAME);
             c = conn.cursor()
-            c.execute("SELECT seats, price FROM flights WHERE id=?", (f_data[0],))
-            res = c.fetchone()
-            if res and res[0] > 0:
-                c.execute("UPDATE flights SET seats = seats - 1 WHERE id=?", (f_data[0],))
-                c.execute(
-                    "INSERT INTO bookings (customer_name, customer_phone, flight_code, price_at_booking) VALUES (?,?,?,?)",
-                    (en.get(), ep.get(), f_data[1], res[1]))
-                conn.commit();
-                conn.close();
-                self.load_data();
-                pop.destroy()
-                messagebox.showinfo("Thành công", "Đặt vé thành công!")
-            else:
-                messagebox.showerror("Lỗi", "Chuyến bay đã hết chỗ!");
-                conn.close()
+
+            # Cập nhật booked_seats (thêm ghế mới vào chuỗi)
+            new_booked = (res[2] + "," + selected_seat).strip(',')
+
+            c.execute("UPDATE flights SET seats = seats - 1, booked_seats = ? WHERE id=?", (new_booked, f_data[0]))
+            c.execute(
+                "INSERT INTO bookings (customer_name, customer_phone, flight_code, seat_number, price_at_booking) VALUES (?,?,?,?,?)",
+                (en.get(), ep.get(), f_data[1], selected_seat, res[3]))
+
+            conn.commit();
+            conn.close();
+            self.load_data();
+            pop.destroy()
+            messagebox.showinfo("Thành công", f"Đặt vé thành công! Ghế của bạn là: {selected_seat}")
 
         ctk.CTkButton(pop, text="XÁC NHẬN ĐẶT VÉ", fg_color="#E67E22", command=confirm).pack(pady=20)
 
     def setup_customer_view(self):
         ctk.CTkLabel(self.frame_customers, text="DANH SÁCH KHÁCH HÀNG ĐÃ ĐẶT VÉ", font=("Arial", 20, "bold")).pack(
             pady=10)
-        self.tree_cust = ttk.Treeview(self.frame_customers, columns=("ID", "Name", "Phone", "Flight", "Date"),
+        # THÊM CỘT SEAT VÀO DANH SÁCH
+        self.tree_cust = ttk.Treeview(self.frame_customers, columns=("ID", "Name", "Phone", "Flight", "Seat", "Date"),
                                       show='headings')
-        for c in ("ID", "Name", "Phone", "Flight", "Date"): self.tree_cust.heading(c, text=c); self.tree_cust.column(c,
-                                                                                                                     anchor="center")
+        for c in ("ID", "Name", "Phone", "Flight", "Seat", "Date"):
+            self.tree_cust.heading(c, text=c);
+            self.tree_cust.column(c, anchor="center")
+
         self.tree_cust.pack(fill="both", expand=True, pady=10)
         ctk.CTkButton(self.frame_customers, text="❌ HỦY VÉ & HOÀN GHẾ", fg_color="#C0392B", height=45,
                       command=self.cancel_booking).pack(pady=10)
@@ -322,24 +358,36 @@ class FlightApp(ctk.CTk):
         for r in self.tree_cust.get_children(): self.tree_cust.delete(r)
         conn = sqlite3.connect(DB_NAME);
         c = conn.cursor();
-        c.execute("SELECT id, customer_name, customer_phone, flight_code, booking_date FROM bookings")
+        # Cập nhật query để lấy cả seat_number
+        c.execute("SELECT id, customer_name, customer_phone, flight_code, seat_number, booking_date FROM bookings")
         for r in c.fetchall(): self.tree_cust.insert("", "end", values=r)
         conn.close()
 
     def cancel_booking(self):
         sel = self.tree_cust.selection()
         if not sel: return
-        data = self.tree_cust.item(sel)['values']
-        if messagebox.askyesno("Xác nhận", f"Hủy vé khách {data[1]}?"):
+        data = self.tree_cust.item(sel)['values']  # data[4] là seat_number, data[3] là flight_code
+
+        if messagebox.askyesno("Xác nhận", f"Hủy vé khách {data[1]} (Ghế {data[4]})?"):
             conn = sqlite3.connect(DB_NAME);
             c = conn.cursor()
+
+            # XÓA GHẾ KHỎI DANH SÁCH BOOKED_SEATS TRONG FLIGHTS
+            c.execute("SELECT booked_seats FROM flights WHERE code=?", (data[3],))
+            booked_str = c.fetchone()[0]
+            booked_list = booked_str.split(',')
+            if str(data[4]) in booked_list:
+                booked_list.remove(str(data[4]))
+            new_booked_str = ",".join(booked_list).strip(',')
+
             c.execute("DELETE FROM bookings WHERE id=?", (data[0],))
-            c.execute("UPDATE flights SET seats = seats + 1 WHERE code=?", (data[3],))
+            c.execute("UPDATE flights SET seats = seats + 1, booked_seats = ? WHERE code=?", (new_booked_str, data[3]))
+
             conn.commit();
             conn.close();
             self.load_customers();
             self.load_data();
-            messagebox.showinfo("Xong", "Đã hủy vé!")
+            messagebox.showinfo("Xong", "Đã hủy vé và giải phóng ghế!")
 
     def setup_stats_view(self):
         card = ctk.CTkFrame(self.frame_stats, fg_color="#1E272E", border_width=2, border_color="#27AE60")
