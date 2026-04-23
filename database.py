@@ -1,7 +1,6 @@
 import sqlite3
 import os
 
-
 # --- 1. KHỞI TẠO CƠ SỞ DỮ LIỆU ---
 def init_db():
     conn = sqlite3.connect('dai_ly_ve.db')
@@ -29,7 +28,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-
 # --- 2. CÁC HÀM NGHIỆP VỤ (BACKEND) ---
 
 def add_flight(code, destination, price, seats):
@@ -45,7 +43,6 @@ def add_flight(code, destination, price, seats):
     finally:
         conn.close()
 
-
 def show_flights():
     conn = sqlite3.connect('dai_ly_ve.db')
     cursor = conn.cursor()
@@ -56,7 +53,6 @@ def show_flights():
     for r in rows:
         print(f"{r[0]:<5} {r[1]:<10} {r[2]:<15} {r[3]:<12,.0f} {r[4]:<5}")
     conn.close()
-
 
 def book_ticket(customer_name, flight_id):
     conn = sqlite3.connect('dai_ly_ve.db')
@@ -78,7 +74,6 @@ def book_ticket(customer_name, flight_id):
         print("❌ Hết ghế hoặc chuyến bay không tồn tại!")
     conn.close()
 
-
 # --- 3. GIAO DIỆN ĐIỀU KHIỂN (CLI MENU) ---
 
 def main():
@@ -95,22 +90,27 @@ def main():
         if choice == '1':
             show_flights()
         elif choice == '2':
-            code = input("Nhập mã chuyến bay (VD: VJ01): ")
-            dest = input("Nhập điểm đến: ")
-            price = float(input("Nhập giá vé: "))
-            seats = int(input("Nhập số lượng ghế: "))
-            add_flight(code, dest, price, seats)
+            try:
+                code = input("Nhập mã chuyến bay (VD: VJ01): ")
+                dest = input("Nhập điểm đến: ")
+                price = float(input("Nhập giá vé: "))
+                seats = int(input("Nhập số lượng ghế: "))
+                add_flight(code, dest, price, seats)
+            except ValueError:
+                print("❌ Lỗi: Giá vé và số ghế phải là số!")
         elif choice == '3':
             show_flights()
-            f_id = int(input("Nhập ID chuyến bay khách chọn: "))
-            name = input("Nhập tên khách hàng: ")
-            book_ticket(name, f_id)
+            try:
+                f_id = int(input("Nhập ID chuyến bay khách chọn: "))
+                name = input("Nhập tên khách hàng: ")
+                book_ticket(name, f_id)
+            except ValueError:
+                print("❌ Lỗi: ID phải là con số!")
         elif choice == '4':
             print("Tạm biệt!")
             break
         else:
             print("Lựa chọn không hợp lệ!")
-
 
 if __name__ == "__main__":
     main()
