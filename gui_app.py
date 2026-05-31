@@ -17,53 +17,172 @@ AIRLINES = ["Vietnam Airlines", "VietJet Air", "Bamboo Airways", "Vietravel Airl
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # 1. Tạo bảng Chuyến bay (Thêm cột airline)
-    cursor.execute('''CREATE TABLE IF NOT EXISTS flights (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        airline TEXT,
-                        code TEXT UNIQUE, destination TEXT, 
-                        price REAL, seats INTEGER,
-                        total_seats INTEGER,
-                        booked_seats TEXT DEFAULT '',
-                        departure_time TEXT)''')
-    # 2. Tạo bảng Đặt vé
-    cursor.execute('''CREATE TABLE IF NOT EXISTS bookings (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        customer_name TEXT, customer_phone TEXT,
-                        flight_code TEXT, seat_number TEXT, price_at_booking REAL,
-                        booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    # 3. Tạo bảng Người dùng
-    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        username TEXT UNIQUE, password TEXT, role TEXT)''')
 
-    # Khởi tạo tài khoản mặc định
+    # =========================
+    # 1. BẢNG HÃNG BAY
+    # =========================
+
+
+    # Thêm hãng mẫu
+    for airline in AIRLINES:
+        cursor.execute(
+            "INSERT OR IGNORE INTO airlines(name) VALUES(?)",
+            (airline,)
+        )
+
+    # =========================
+    # 2. BẢNG CHUYẾN BAY
+    # =========================
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS flights (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        airline TEXT,
+        code TEXT UNIQUE,
+        destination TEXT,
+        price REAL,
+        seats INTEGER,
+        total_seats INTEGER,
+        booked_seats TEXT DEFAULT '',
+        departure_time TEXT
+    )
+    ''')
+
+    # =========================
+    # 3. BẢNG ĐẶT VÉ
+    # =========================
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS bookings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_name TEXT,
+        customer_phone TEXT,
+        flight_code TEXT,
+        seat_number TEXT,
+        price_at_booking REAL,
+        booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
+    # =========================
+    # 4. BẢNG USERS
+    # =========================
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        password TEXT,
+        role TEXT
+    )
+    ''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS airlines(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE,
+        country TEXT,
+        hotline TEXT,
+        website TEXT
+    )
+    ''')
+    # =========================
+    # TÀI KHOẢN MẶC ĐỊNH
+    # =========================
     cursor.execute("SELECT * FROM users WHERE username='admin'")
     if not cursor.fetchone():
-        cursor.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", ('admin', '123', 'Admin'))
+        cursor.execute(
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            ('admin', '123', 'Admin')
+        )
+
     cursor.execute("SELECT * FROM users WHERE username='staff'")
     if not cursor.fetchone():
-        cursor.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", ('staff', '123', 'Staff'))
+        cursor.execute(
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            ('staff', '123', 'Staff')
+        )
 
-    # --- THÊM DỮ LIỆU MẪU CÓ HÃNG ---
+    # =========================
+    # DỮ LIỆU MẪU CHUYẾN BAY
+    # =========================
     cursor.execute("SELECT COUNT(*) FROM flights")
+
     if cursor.fetchone()[0] == 0:
+
         now = datetime.datetime.now()
+
         sample_flights = [
-            ('Vietnam Airlines', 'VN121', 'TP. Hồ Chí Minh (SGN)', 1250000, 48, 50, 'G1,G2',
-             (now + datetime.timedelta(days=1)).strftime("%d/%m %H:%M")),
-            ('Vietnam Airlines', 'VN234', 'Hà Nội (HAN)', 1500000, 50, 50, '',
-             (now + datetime.timedelta(days=2)).strftime("%d/%m %H:%M")),
-            ('VietJet Air', 'VJ456', 'Đà Nẵng (DAD)', 850000, 59, 60, 'G5',
-             (now + datetime.timedelta(hours=5)).strftime("%d/%m %H:%M")),
-            ('Bamboo Airways', 'QH789', 'Phú Quốc (PQC)', 2100000, 40, 40, '',
-             (now + datetime.timedelta(days=3)).strftime("%d/%m %H:%M")),
-            ('Vietnam Airlines', 'VN999', 'Đà Lạt (DLI)', 950000, 0, 30, '',
-             (now + datetime.timedelta(days=1)).strftime("%d/%m %H:%M"))
+            (
+                'Vietnam Airlines',
+                'VN121',
+                'TP. Hồ Chí Minh (SGN)',
+                1250000,
+                48,
+                50,
+                'G1,G2',
+                (now + datetime.timedelta(days=1)).strftime("%d/%m %H:%M")
+            ),
+
+            (
+                'Vietnam Airlines',
+                'VN234',
+                'Hà Nội (HAN)',
+                1500000,
+                50,
+                50,
+                '',
+                (now + datetime.timedelta(days=2)).strftime("%d/%m %H:%M")
+            ),
+
+            (
+                'VietJet Air',
+                'VJ456',
+                'Đà Nẵng (DAD)',
+                850000,
+                59,
+                60,
+                'G5',
+                (now + datetime.timedelta(hours=5)).strftime("%d/%m %H:%M")
+            ),
+
+            (
+                'Bamboo Airways',
+                'QH789',
+                'Phú Quốc (PQC)',
+                2100000,
+                40,
+                40,
+                '',
+                (now + datetime.timedelta(days=3)).strftime("%d/%m %H:%M")
+            ),
+
+            (
+                'Vietnam Airlines',
+                'VN999',
+                'Đà Lạt (DLI)',
+                950000,
+                0,
+                30,
+                '',
+                (now + datetime.timedelta(days=1)).strftime("%d/%m %H:%M")
+            )
         ]
+
         cursor.executemany(
-            "INSERT INTO flights (airline, code, destination, price, seats, total_seats, booked_seats, departure_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            sample_flights)
+            '''
+            INSERT INTO flights
+            (
+                airline,
+                code,
+                destination,
+                price,
+                seats,
+                total_seats,
+                booked_seats,
+                departure_time
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''',
+            sample_flights
+        )
 
     conn.commit()
     conn.close()
@@ -114,6 +233,7 @@ class FlightApp(ctk.CTk):
         self.current_user, self.current_role = username, role
         self.show_main_ui()
 
+
     def show_main_ui(self):
         for w in self.container.winfo_children(): w.destroy()
         self.container.grid_columnconfigure(1, weight=1)
@@ -135,7 +255,20 @@ class FlightApp(ctk.CTk):
         if self.current_role == "Admin":
             ctk.CTkButton(self.sidebar, text="📊 THỐNG KÊ", height=45, fg_color="#34495E",
                           command=lambda: self.show_frame("stats")).pack(pady=5, padx=20, fill="x")
-
+            ctk.CTkButton(
+                self.sidebar,
+                text="👥 QUẢN LÝ USER",
+                height=45,
+                fg_color="#34495E",
+                command=lambda: self.show_frame("users")
+            ).pack(pady=5, padx=20, fill="x")
+            ctk.CTkButton(
+                self.sidebar,
+                text="✈ QUẢN LÝ HÃNG",
+                height=45,
+                fg_color="#34495E",
+                command=lambda: self.show_frame("airlines")
+            ).pack(pady=5, padx=20, fill="x")
             # Form Admin mở rộng thêm cột Hãng
             self.admin_input_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
             self.admin_input_frame.pack(pady=20, fill="x")
@@ -159,12 +292,10 @@ class FlightApp(ctk.CTk):
                                                                                                               fill="x")
 
         ctk.CTkButton(self.sidebar, text="🚪 ĐĂNG XUẤT", fg_color="#C0392B", command=self.show_login).pack(side="bottom",
+
                                                                                                           pady=20,
                                                                                                           padx=20,
                                                                                                           fill="x")
-        if self.current_role == "Admin":
-            ctk.CTkButton(self.sidebar, text="💾 SAO LƯU", fg_color="#8E44AD", command=self.backup_data).pack(
-                side="bottom", pady=5, padx=20, fill="x")
 
         # Main Pages
         self.main_content = ctk.CTkFrame(self.container, fg_color="transparent")
@@ -172,23 +303,90 @@ class FlightApp(ctk.CTk):
         self.frame_flights = ctk.CTkFrame(self.main_content, fg_color="transparent")
         self.frame_customers = ctk.CTkFrame(self.main_content, fg_color="transparent")
         self.frame_stats = ctk.CTkFrame(self.main_content, fg_color="transparent")
-
+        self.frame_users = ctk.CTkFrame(self.main_content, fg_color="transparent")
+        self.frame_airlines = ctk.CTkFrame(self.main_content,fg_color="transparent"
+        )
         self.setup_flight_view()
+        bf = ctk.CTkFrame(
+            self.frame_flights,
+            fg_color="transparent"
+        )
+
+        bf.pack(fill="x", pady=20)
+
+        # Nút đặt vé
+        ctk.CTkButton(
+            bf,
+            text="ĐẶT VÉ",
+            fg_color="#E67E22",
+            height=50,
+            font=("Arial", 14, "bold"),
+            command=self.open_booking
+        ).pack(side="left", expand=True, padx=10)
+
+        # Chỉ Admin mới thấy
+        if self.current_role == "Admin":
+            ctk.CTkButton(
+                bf,
+                text="✏ SỬA CHUYẾN",
+                fg_color="#2980B9",
+                height=50,
+                font=("Arial", 14, "bold"),
+                command=self.edit_flight
+            ).pack(side="left", expand=True, padx=10)
+
+            ctk.CTkButton(
+                bf,
+                text="❌ XÓA CHUYẾN",
+                fg_color="#C0392B",
+                height=50,
+                font=("Arial", 14, "bold"),
+                command=self.delete_flight
+            ).pack(side="left", expand=True, padx=10)
         self.setup_customer_view()
         self.setup_stats_view()
+        self.setup_user_view()
+        self.setup_airline_view()
         self.show_frame("flights")
 
     def show_frame(self, page):
-        for f in [self.frame_flights, self.frame_customers, self.frame_stats]: f.pack_forget()
+
+        for f in [
+            self.frame_flights,
+            self.frame_customers,
+            self.frame_stats,
+            self.frame_users,
+            self.frame_airlines
+        ]:
+            f.pack_forget()
+
+        # ẨN / HIỆN FORM ADMIN
+        if self.current_role == "Admin":
+
+            if page == "flights":
+                self.admin_input_frame.pack(pady=20, fill="x")
+            else:
+                self.admin_input_frame.pack_forget()
+
         if page == "flights":
-            self.frame_flights.pack(fill="both", expand=True);
+            self.frame_flights.pack(fill="both", expand=True)
             self.load_data()
+
         elif page == "customers":
-            self.frame_customers.pack(fill="both", expand=True);
+            self.frame_customers.pack(fill="both", expand=True)
             self.load_customers()
+
         elif page == "stats":
-            self.frame_stats.pack(fill="both", expand=True);
+            self.frame_stats.pack(fill="both", expand=True)
             self.update_stats()
+
+        elif page == "users":
+            self.frame_users.pack(fill="both", expand=True)
+            self.load_users()
+
+        elif page == "airlines":
+            self.frame_airlines.pack(fill="both", expand=True)
+            self.load_airlines()
 
     def setup_flight_view(self):
         filter_bar = ctk.CTkFrame(self.frame_flights, fg_color="#2C3E50", corner_radius=10)
@@ -224,13 +422,6 @@ class FlightApp(ctk.CTk):
         self.tree.tag_configure('warning', foreground='#FF4444', font=('Arial', 10, 'bold'))
         self.tree.pack(fill="both", expand=True)
 
-        bf = ctk.CTkFrame(self.frame_flights, fg_color="transparent");
-        bf.pack(fill="x", pady=20)
-        ctk.CTkButton(bf, text="ĐẶT VÉ", fg_color="#E67E22", height=50, font=("Arial", 14, "bold"),
-                      command=self.open_booking).pack(side="left", expand=True, padx=10)
-        if self.current_role == "Admin":
-            ctk.CTkButton(bf, text="XÓA CHUYẾN", fg_color="#C0392B", height=50, font=("Arial", 14, "bold"),
-                          command=self.delete_flight).pack(side="left", expand=True, padx=10)
 
     def load_data(self):
         for r in self.tree.get_children(): self.tree.delete(r)
@@ -279,56 +470,231 @@ class FlightApp(ctk.CTk):
 
     def open_booking(self):
         sel = self.tree.selection()
+
         if not sel:
             messagebox.showwarning("Chú ý", "Hãy chọn một chuyến bay!")
             return
-        f_data = self.tree.item(sel)['values']  # Index: 0=ID, 1=Airline, 2=Code
 
-        conn = sqlite3.connect(DB_NAME);
+        # Lấy dữ liệu chuyến bay
+        f_data = self.tree.item(sel)['values']
+
+        conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
-        c.execute("SELECT seats, total_seats, booked_seats, price FROM flights WHERE id=?", (f_data[0],))
-        res = c.fetchone();
+
+        c.execute(
+            "SELECT seats, total_seats, booked_seats, price FROM flights WHERE id=?",
+            (f_data[0],)
+        )
+
+        res = c.fetchone()
         conn.close()
 
+        # res:
+        # 0 = seats
+        # 1 = total_seats
+        # 2 = booked_seats
+        # 3 = price
+
         if res[0] <= 0:
-            messagebox.showerror("Lỗi", "Chuyến bay đã hết chỗ!");
+            messagebox.showerror("Lỗi", "Chuyến bay đã hết chỗ!")
             return
 
+        # Danh sách ghế đã đặt
         booked_list = res[2].split(',') if res[2] else []
-        available_seats = [f"G{i}" for i in range(1, res[1] + 1) if f"G{i}" not in booked_list]
 
-        pop = ctk.CTkToplevel(self);
-        pop.title("Đặt vé & Chọn ghế");
-        pop.geometry("400x450");
+        # Danh sách ghế còn trống
+        available_seats = []
+
+        for i in range(1, res[1] + 1):
+            seat = f"G{i}"
+
+            if seat not in booked_list:
+                available_seats.append(seat)
+
+        # ==========================
+        # POPUP ĐẶT VÉ
+        # ==========================
+        pop = ctk.CTkToplevel(self)
+        pop.title("Đặt vé nhiều ghế")
+        pop.geometry("550x700")
         pop.attributes("-topmost", True)
-        ctk.CTkLabel(pop, text=f"HÃNG: {f_data[1]}\nMÃ: {f_data[2]}", font=("Arial", 14, "bold")).pack(pady=10)
-        en = ctk.CTkEntry(pop, placeholder_text="Tên khách hàng", width=300);
+
+        ctk.CTkLabel(
+            pop,
+            text=f"HÃNG: {f_data[1]}\nMÃ CHUYẾN: {f_data[2]}",
+            font=("Arial", 16, "bold")
+        ).pack(pady=10)
+
+        # Tên khách hàng
+        en = ctk.CTkEntry(
+            pop,
+            placeholder_text="Tên khách hàng",
+            width=350
+        )
         en.pack(pady=10)
-        ep = ctk.CTkEntry(pop, placeholder_text="Số điện thoại", width=300);
+
+        # SĐT
+        ep = ctk.CTkEntry(
+            pop,
+            placeholder_text="Số điện thoại",
+            width=350
+        )
         ep.pack(pady=10)
 
-        ctk.CTkLabel(pop, text="Chọn ghế:").pack(pady=(10, 0))
-        seat_var = ctk.StringVar(value=available_seats[0])
-        ctk.CTkOptionMenu(pop, values=available_seats, variable=seat_var, width=300).pack(pady=10)
+        ctk.CTkLabel(
+            pop,
+            text="CHỌN GHẾ",
+            font=("Arial", 14, "bold")
+        ).pack(pady=(15, 5))
 
+        # Frame cuộn chứa ghế
+        seat_frame = ctk.CTkScrollableFrame(
+            pop,
+            width=450,
+            height=350
+        )
+
+        seat_frame.pack(pady=10)
+
+        # Lưu checkbox
+        seat_vars = {}
+
+        row = 0
+        col = 0
+
+        # Tạo checkbox ghế
+        for seat in available_seats:
+
+            var = ctk.BooleanVar()
+
+            cb = ctk.CTkCheckBox(
+                seat_frame,
+                text=seat,
+                variable=var
+            )
+
+            cb.grid(
+                row=row,
+                column=col,
+                padx=10,
+                pady=10,
+                sticky="w"
+            )
+
+            seat_vars[seat] = var
+
+            col += 1
+
+            if col > 4:
+                col = 0
+                row += 1
+
+        # ==========================
+        # XÁC NHẬN ĐẶT VÉ
+        # ==========================
         def confirm():
-            if not en.get() or not ep.get():
-                messagebox.showwarning("Lỗi", "Vui lòng nhập đủ thông tin!");
-                return
-            conn = sqlite3.connect(DB_NAME);
-            c = conn.cursor()
-            new_booked = (res[2] + "," + seat_var.get()).strip(',')
-            c.execute("UPDATE flights SET seats = seats - 1, booked_seats = ? WHERE id=?", (new_booked, f_data[0]))
-            c.execute(
-                "INSERT INTO bookings (customer_name, customer_phone, flight_code, seat_number, price_at_booking) VALUES (?,?,?,?,?)",
-                (en.get(), ep.get(), f_data[2], seat_var.get(), res[3]))
-            conn.commit();
-            conn.close();
-            self.load_data();
-            pop.destroy()
-            messagebox.showinfo("Thành công", f"Đặt vé thành công! Ghế: {seat_var.get()}")
 
-        ctk.CTkButton(pop, text="XÁC NHẬN ĐẶT VÉ", fg_color="#E67E22", command=confirm).pack(pady=20)
+            customer_name = en.get().strip()
+            customer_phone = ep.get().strip()
+
+            if not customer_name or not customer_phone:
+                messagebox.showwarning(
+                    "Lỗi",
+                    "Vui lòng nhập đầy đủ thông tin!"
+                )
+                return
+
+            # Ghế được chọn
+            selected_seats = []
+
+            for seat, var in seat_vars.items():
+                if var.get():
+                    selected_seats.append(seat)
+
+            if len(selected_seats) == 0:
+                messagebox.showwarning(
+                    "Lỗi",
+                    "Hãy chọn ít nhất 1 ghế!"
+                )
+                return
+
+            if len(selected_seats) > res[0]:
+                messagebox.showerror(
+                    "Lỗi",
+                    "Không đủ ghế trống!"
+                )
+                return
+
+            conn = sqlite3.connect(DB_NAME)
+            c = conn.cursor()
+
+            # Gộp ghế cũ + ghế mới
+            all_booked = booked_list + selected_seats
+
+            new_booked = ",".join(all_booked)
+
+            # Cập nhật số ghế
+            c.execute(
+                """
+                UPDATE flights
+                SET seats = seats - ?,
+                    booked_seats = ?
+                WHERE id=?
+                """,
+                (
+                    len(selected_seats),
+                    new_booked,
+                    f_data[0]
+                )
+            )
+
+            # Insert từng ghế vào bookings
+            for seat in selected_seats:
+                c.execute(
+                    """
+                    INSERT INTO bookings
+                    (
+                        customer_name,
+                        customer_phone,
+                        flight_code,
+                        seat_number,
+                        price_at_booking
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        customer_name,
+                        customer_phone,
+                        f_data[2],
+                        seat,
+                        res[3]
+                    )
+                )
+
+            conn.commit()
+            conn.close()
+
+            self.load_data()
+
+            pop.destroy()
+
+            messagebox.showinfo(
+                "Thành công",
+                f"Đặt thành công {len(selected_seats)} ghế!\n\n"
+                f"Ghế đã chọn:\n{', '.join(selected_seats)}"
+            )
+
+        # Nút xác nhận
+        ctk.CTkButton(
+            pop,
+            text="XÁC NHẬN ĐẶT VÉ",
+            fg_color="#E67E22",
+            height=45,
+            font=("Arial", 14, "bold"),
+            command=confirm
+        ).pack(pady=20)
+
+
 
     # --- CÁC HÀM KHÁC GIỮ NGUYÊN TỪ V11 ---
     def setup_customer_view(self):
@@ -407,12 +773,493 @@ class FlightApp(ctk.CTk):
             conn.commit();
             conn.close();
             self.load_data()
+    def edit_flight(self):
+
+        sel = self.tree.selection()
+
+        if not sel:
+            messagebox.showwarning(
+                "Lỗi",
+                "Hãy chọn chuyến bay!"
+            )
+            return
+
+        data = self.tree.item(sel)['values']
+
+        pop = ctk.CTkToplevel(self)
+        pop.title("Sửa chuyến bay")
+        pop.geometry("400x500")
+
+        ctk.CTkLabel(
+            pop,
+            text="CHỈNH SỬA CHUYẾN BAY",
+            font=("Arial", 18, "bold")
+        ).pack(pady=15)
+
+        airline = ctk.CTkOptionMenu(
+            pop,
+            values=AIRLINES
+        )
+        airline.pack(pady=10)
+        airline.set(data[1])
+
+        ent_code = ctk.CTkEntry(pop)
+        ent_code.pack(pady=10)
+        ent_code.insert(0, data[2])
+
+        ent_dest = ctk.CTkEntry(pop)
+        ent_dest.pack(pady=10)
+        ent_dest.insert(0, data[3])
+
+        ent_time = ctk.CTkEntry(pop)
+        ent_time.pack(pady=10)
+        ent_time.insert(0, data[4])
+
+        ent_price = ctk.CTkEntry(pop)
+        ent_price.pack(pady=10)
+        ent_price.insert(0, str(data[5]).replace(",", ""))
+
+        ent_total = ctk.CTkEntry(pop)
+        ent_total.pack(pady=10)
+        ent_total.insert(0, str(data[7]))
+
+        def save_edit():
+
+            try:
+                conn = sqlite3.connect(DB_NAME)
+                c = conn.cursor()
+
+                c.execute(
+                    """
+                    UPDATE flights
+                    SET airline=?,
+                        code=?,
+                        destination=?,
+                        departure_time=?,
+                        price=?,
+                        total_seats=?
+                    WHERE id=?
+                    """,
+                    (
+                        airline.get(),
+                        ent_code.get().upper(),
+                        ent_dest.get(),
+                        ent_time.get(),
+                        float(ent_price.get()),
+                        int(ent_total.get()),
+                        data[0]
+                    )
+                )
+
+                conn.commit()
+                conn.close()
+
+                self.load_data()
+
+                pop.destroy()
+
+                messagebox.showinfo(
+                    "Thành công",
+                    "Đã cập nhật chuyến bay!"
+                )
+
+            except Exception as e:
+                messagebox.showerror(
+                    "Lỗi",
+                    str(e)
+                )
+
+        ctk.CTkButton(
+            pop,
+            text="LƯU THAY ĐỔI",
+            fg_color="#27AE60",
+            command=save_edit
+        ).pack(pady=20)
 
     def backup_data(self):
         if not os.path.exists('Backups'): os.makedirs('Backups')
         shutil.copy2(DB_NAME, f"Backups/backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.db")
         messagebox.showinfo("OK", "Đã sao lưu!")
 
+    # =========================
+    # QUẢN LÝ USER
+    # =========================
+
+    def setup_user_view(self):
+
+        ctk.CTkLabel(
+            self.frame_users,
+            text="QUẢN LÝ TÀI KHOẢN",
+            font=("Arial", 22, "bold")
+        ).pack(pady=10)
+
+        form = ctk.CTkFrame(self.frame_users)
+        form.pack(fill="x", padx=20, pady=10)
+
+        self.ent_new_user = ctk.CTkEntry(
+            form,
+            placeholder_text="Tên đăng nhập"
+        )
+        self.ent_new_user.grid(row=0, column=0, padx=10, pady=10)
+
+        self.ent_new_pass = ctk.CTkEntry(
+            form,
+            placeholder_text="Mật khẩu"
+        )
+        self.ent_new_pass.grid(row=0, column=1, padx=10, pady=10)
+
+        self.opt_role = ctk.CTkOptionMenu(
+            form,
+            values=["Admin", "Staff"]
+        )
+        self.opt_role.grid(row=0, column=2, padx=10, pady=10)
+
+        ctk.CTkButton(
+            form,
+            text="THÊM USER",
+            fg_color="#27AE60",
+            command=self.add_user
+        ).grid(row=0, column=3, padx=10)
+
+        ctk.CTkButton(
+            form,
+            text="RESET PASS",
+            fg_color="#F39C12",
+            command=self.reset_password
+        ).grid(row=0, column=4, padx=10)
+
+        ctk.CTkButton(
+            form,
+            text="XÓA USER",
+            fg_color="#C0392B",
+            command=self.delete_user
+        ).grid(row=0, column=5, padx=10)
+
+        self.tree_users = ttk.Treeview(
+            self.frame_users,
+            columns=("ID", "Username", "Role"),
+            show='headings'
+        )
+
+        for c in ("ID", "Username", "Role"):
+            self.tree_users.heading(c, text=c)
+            self.tree_users.column(c, anchor="center")
+
+        self.tree_users.pack(fill="both", expand=True, padx=20, pady=20)
+
+    def load_users(self):
+
+        for row in self.tree_users.get_children():
+            self.tree_users.delete(row)
+
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+
+        c.execute("SELECT id, username, role FROM users")
+
+        for row in c.fetchall():
+            self.tree_users.insert("", "end", values=row)
+
+        conn.close()
+
+    def add_user(self):
+
+        username = self.ent_new_user.get().strip()
+        password = self.ent_new_pass.get().strip()
+        role = self.opt_role.get()
+
+        if not username or not password:
+            messagebox.showwarning("Lỗi", "Nhập đầy đủ thông tin!")
+            return
+
+        try:
+            conn = sqlite3.connect(DB_NAME)
+            c = conn.cursor()
+
+            c.execute(
+                """
+                INSERT INTO users(username, password, role)
+                VALUES (?, ?, ?)
+                """,
+                (username, password, role)
+            )
+
+            conn.commit()
+            conn.close()
+
+            self.load_users()
+
+            self.ent_new_user.delete(0, 'end')
+            self.ent_new_pass.delete(0, 'end')
+
+            messagebox.showinfo("Thành công", "Đã thêm user!")
+
+        except Exception as e:
+            messagebox.showerror("Lỗi", str(e))
+
+    def delete_user(self):
+
+        sel = self.tree_users.selection()
+
+        if not sel:
+            messagebox.showwarning("Lỗi", "Chọn user!")
+            return
+
+        data = self.tree_users.item(sel)['values']
+
+        if data[1] == "admin":
+            messagebox.showwarning(
+                "Lỗi",
+                "Không thể xóa admin!"
+            )
+            return
+
+        if messagebox.askyesno(
+                "Xác nhận",
+                f"Xóa user {data[1]} ?"
+        ):
+            conn = sqlite3.connect(DB_NAME)
+            c = conn.cursor()
+
+            c.execute(
+                "DELETE FROM users WHERE id=?",
+                (data[0],)
+            )
+
+            conn.commit()
+            conn.close()
+
+            self.load_users()
+
+            messagebox.showinfo("Thành công", "Đã xóa user!")
+
+    def reset_password(self):
+
+        sel = self.tree_users.selection()
+
+        if not sel:
+            messagebox.showwarning("Lỗi", "Chọn user!")
+            return
+
+        data = self.tree_users.item(sel)['values']
+
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+
+        c.execute(
+            "UPDATE users SET password='123' WHERE id=?",
+            (data[0],)
+        )
+
+        conn.commit()
+        conn.close()
+
+        messagebox.showinfo(
+            "Thành công",
+            f"Đã reset mật khẩu user {data[1]} về 123"
+        )
+
+    # =========================
+    # QUẢN LÝ HÃNG BAY
+    # =========================
+
+    def setup_airline_view(self):
+
+        ctk.CTkLabel(
+            self.frame_airlines,
+            text="QUẢN LÝ HÃNG HÀNG KHÔNG",
+            font=("Arial", 22, "bold")
+        ).pack(pady=10)
+
+        form = ctk.CTkFrame(self.frame_airlines)
+        form.pack(fill="x", padx=20, pady=10)
+
+        self.ent_airline = ctk.CTkEntry(
+            form,
+            placeholder_text="Tên hãng hàng không"
+        )
+        self.ent_airline.grid(row=0, column=0, padx=10, pady=10)
+
+        self.ent_country = ctk.CTkEntry(
+            form,
+            placeholder_text="Quốc gia"
+        )
+        self.ent_country.grid(row=1, column=0, padx=10, pady=10)
+
+        self.ent_hotline = ctk.CTkEntry(
+            form,
+            placeholder_text="Hotline"
+        )
+        self.ent_hotline.grid(row=1, column=1, padx=10, pady=10)
+
+        self.ent_website = ctk.CTkEntry(
+            form,
+            placeholder_text="Website"
+        )
+        self.ent_website.grid(row=1, column=2, padx=10, pady=10)
+
+        ctk.CTkButton(
+            form,
+            text="THÊM HÃNG",
+            fg_color="#27AE60",
+            command=self.add_airline
+        ).grid(row=0, column=1, padx=10)
+
+        ctk.CTkButton(
+            form,
+            text="XÓA HÃNG",
+            fg_color="#C0392B",
+            command=self.delete_airline
+        ).grid(row=0, column=2, padx=10)
+
+        self.tree_airlines = ttk.Treeview(
+            self.frame_airlines,
+            columns=("ID", "Name"),
+            show='headings'
+        )
+
+        self.tree_airlines.heading("ID", text="ID")
+        self.tree_airlines.heading("Name", text="Tên hãng")
+
+        self.tree_airlines.column("ID", width=80, anchor="center")
+        self.tree_airlines.column("Name", anchor="center")
+
+        self.tree_airlines.pack(
+            fill="both",
+            expand=True,
+            padx=20,
+            pady=20
+        )
+
+    def load_airlines(self):
+
+        for row in self.tree_airlines.get_children():
+            self.tree_airlines.delete(row)
+
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+
+        c.execute("SELECT id, name FROM airlines")
+
+        rows = c.fetchall()
+
+        conn.close()
+
+        for row in rows:
+            self.tree_airlines.insert("", "end", values=row)
+
+    def add_airline(self):
+
+        global AIRLINES
+
+        name = self.ent_airline.get().strip()
+
+        if not name:
+            messagebox.showwarning(
+                "Lỗi",
+                "Nhập tên hãng!"
+            )
+            return
+
+        try:
+            conn = sqlite3.connect(DB_NAME)
+            c = conn.cursor()
+
+            c.execute(
+                "INSERT INTO airlines(name) VALUES(?)",
+                (name,)
+            )
+
+            conn.commit()
+            conn.close()
+
+            AIRLINES.append(name)
+
+            self.opt_add_airline.configure(values=AIRLINES)
+
+            self.opt_filter_airline.configure(
+                values=["Tất cả hãng"] + AIRLINES
+            )
+
+            self.ent_airline.delete(0, 'end')
+
+            self.load_airlines()
+
+            messagebox.showinfo(
+                "Thành công",
+                "Đã thêm hãng!"
+            )
+
+        except Exception as e:
+            messagebox.showerror(
+                "Lỗi",
+                str(e)
+            )
+
+    def delete_airline(self):
+
+        global AIRLINES
+
+        sel = self.tree_airlines.selection()
+
+        if not sel:
+            messagebox.showwarning(
+                "Lỗi",
+                "Chọn hãng!"
+            )
+            return
+
+        data = self.tree_airlines.item(sel)['values']
+
+        airline_name = data[1]
+
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+
+        c.execute(
+            "SELECT COUNT(*) FROM flights WHERE airline=?",
+            (airline_name,)
+        )
+
+        count = c.fetchone()[0]
+
+        if count > 0:
+            conn.close()
+
+            messagebox.showwarning(
+                "Lỗi",
+                "Hãng đang có chuyến bay!"
+            )
+            return
+
+        if messagebox.askyesno(
+                "Xác nhận",
+                f"Xóa hãng {airline_name} ?"
+        ):
+
+            c.execute(
+                "DELETE FROM airlines WHERE id=?",
+                (data[0],)
+            )
+
+            conn.commit()
+            conn.close()
+
+            if airline_name in AIRLINES:
+                AIRLINES.remove(airline_name)
+
+            self.opt_add_airline.configure(values=AIRLINES)
+
+            self.opt_filter_airline.configure(
+                values=["Tất cả hãng"] + AIRLINES
+            )
+
+            self.load_airlines()
+
+            messagebox.showinfo(
+                "Thành công",
+                "Đã xóa hãng!"
+            )
 
 if __name__ == "__main__":
     init_db()
